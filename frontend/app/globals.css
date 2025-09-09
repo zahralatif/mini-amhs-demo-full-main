@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0b1020;
+  --card: #0f172a;
+  --muted: #94a3b8;
+}
+
+html, body { height: 100%; }
+body { @apply bg-slate-950 text-slate-100; }
+a { @apply text-sky-400 hover:text-sky-300; }
+input, textarea { @apply bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-sky-500; }
+button { @apply rounded-xl px-4 py-2 border border-slate-700 hover:bg-slate-800; }
+.card { @apply bg-slate-900/60 border border-slate-800 rounded-2xl p-5 shadow-lg; }
+.h1 { @apply text-2xl font-semibold; }
+.h2 { @apply text-xl font-semibold; }
+.small { @apply text-sm text-slate-400; }
