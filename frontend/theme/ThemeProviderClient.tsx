@@ -1,32 +1,43 @@
 'use client';
 import * as React from 'react';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
+import createAppTheme from '../theme';
+import type { ColorMode } from '@/lib/types';
 
-export const ColorModeContext = React.createContext({ toggleColorMode: () => {} });
+interface ColorModeContextType {
+  toggleColorMode: () => void;
+  mode: ColorMode;
+}
+
+export const ColorModeContext = React.createContext<ColorModeContextType>({
+  toggleColorMode: () => {},
+  mode: 'dark',
+});
 
 export default function ThemeProviderClient({ children }: { children: React.ReactNode }) {
-  const [mode, setMode] = React.useState<'dark' | 'light'>('dark');
-  const colorMode = React.useMemo(() => ({
-    toggleColorMode: () => setMode(prev => prev === 'light' ? 'dark' : 'light')
-  }), []);
+  const [mode, setMode] = React.useState<ColorMode>('dark');
 
-  const theme = React.useMemo(() => createTheme({
-    palette: {
-      mode,
-      primary: { main: '#7C3AED', contrastText: '#FFFFFF' }, // purple
-      background: {
-        default: mode === 'dark' ? '#0B0B0F' : '#fafafa',
-        paper: mode === 'dark' ? '#12121A' : '#ffffff',
-      },
-      text: {
-        primary: mode === 'dark' ? '#FFFFFF' : '#111827',
-        secondary: mode === 'dark' ? '#C7C7D1' : '#4B5563',
-      },
+  // Load theme preference from localStorage on mount
+  React.useEffect(() => {
+    const savedMode = localStorage.getItem('theme-mode') as ColorMode;
+    if (savedMode && (savedMode === 'light' || savedMode === 'dark')) {
+      setMode(savedMode);
+    }
+  }, []);
+
+  const colorMode = React.useMemo(() => ({
+    toggleColorMode: () => {
+      setMode(prevMode => {
+        const newMode = prevMode === 'light' ? 'dark' : 'light';
+        localStorage.setItem('theme-mode', newMode);
+        return newMode;
+      });
     },
-    shape: { borderRadius: 16 },
-    typography: { fontFamily: `'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif` },
+    mode,
   }), [mode]);
+
+  const theme = React.useMemo(() => createAppTheme(mode), [mode]);
 
   return (
     <ColorModeContext.Provider value={colorMode}>

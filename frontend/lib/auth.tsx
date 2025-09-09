@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { postJSON } from './api';
+import type { LoginRequest, LoginResponse, RegisterRequest } from './types';
 
 // Define the shape of the context data
 interface AuthContextType {
@@ -28,28 +29,52 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('jwt_token');
-    if (storedToken) {
-      setToken(storedToken);
-      // You could also decode the token here to get the username
-      const storedUsername = localStorage.getItem('username');
-      if (storedUsername) {
-        setUsername(storedUsername);
+    const initializeAuth = () => {
+      try {
+        const storedToken = localStorage.getItem('jwt_token');
+        const storedUsername = localStorage.getItem('username');
+        
+        if (storedToken && storedUsername) {
+          setToken(storedToken);
+          setUsername(storedUsername);
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        // Clear potentially corrupted data
+        localStorage.removeItem('jwt_token');
+        localStorage.removeItem('username');
+      } finally {
+        setIsLoading(false);
       }
-    }
-    setIsLoading(false);
+    };
+
+    initializeAuth();
   }, []);
 
   const login = async (user: string, pass: string) => {
     try {
-      const { token: newToken } = await postJSON<{ token: string }>('/api/auth/login', {
+      const loginData: LoginRequest = {
         username: user,
         password: pass,
-      });
-      setToken(newToken);
+      };
+      const response = await postJSON<LoginRequest, LoginResponse>('/api/login', loginData);
+      
+      // Validate response
+      if (!response.token) {
+        throw new Error('Invalid response: No token received');
+      }
+      
+      setToken(response.token);
       setUsername(user); // Or decode from JWT
-      localStorage.setItem('jwt_token', newToken);
-      localStorage.setItem('username', user);
+      
+      // Store in localStorage with error handling
+      try {
+        localStorage.setItem('jwt_token', response.token);
+        localStorage.setItem('username', user);
+      } catch (storageError) {
+        console.warn('Failed to store auth data in localStorage:', storageError);
+        // Continue anyway - the user is still logged in for this session
+      }
     } catch (error) {
       console.error('Login failed:', error);
       throw error; // Re-throw to be handled by the form
@@ -57,18 +82,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const logout = () => {
-    setToken(null);
-    setUsername(null);
-    localStorage.removeItem('jwt_token');
-    localStorage.removeItem('username');
+    try {
+      setToken(null);
+      setUsername(null);
+      localStorage.removeItem('jwt_token');
+      localStorage.removeItem('username');
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Force clear state even if localStorage fails
+      setToken(null);
+      setUsername(null);
+    }
   };
 
   const register = async (user: string, pass: string) => {
     try {
-      await postJSON('/api/auth/register', {
+      const registerData: RegisterRequest = {
         username: user,
         password: pass,
-      });
+      };
+      await postJSON<RegisterRequest, { message: string }>('/api/register', registerData);
       // After successful registration, log the user in
       await login(user, pass);
     } catch (error) {

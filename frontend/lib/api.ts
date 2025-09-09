@@ -1,5 +1,21 @@
 const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8080";
 
+// Generic API functions
+export async function getJSON<T>(path: string, token?: string): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(errorText || `HTTP ${res.status}: ${res.statusText}`);
+  }
+  return res.json() as Promise<T>;
+}
+
 export async function postJSON<TIn, TOut>(path: string, body: TIn, token?: string): Promise<TOut> {
   const res = await fetch(`${BASE}${path}`, {
     method: "POST",
@@ -9,27 +25,37 @@ export async function postJSON<TIn, TOut>(path: string, body: TIn, token?: strin
     },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(errorText || `HTTP ${res.status}: ${res.statusText}`);
+  }
   return res.json() as Promise<TOut>;
 }
 
-// Auth
+import type { 
+  LoginRequest, 
+  LoginResponse, 
+  RegisterRequest, 
+  CreateMessageRequest, 
+  CreateMessageResponse,
+  Message,
+  PaginatedResponse 
+} from './types';
+
+// Auth API
 export function login(username: string, password: string) {
-  // IMPORTANT: backend route has no /auth prefix (aliases exist but we standardize here)
-  return postJSON<{username:string;password:string},{token:string}>("/api/login", { username, password });
-}
-export function register(username: string, password: string) {
-  return postJSON<{username:string;password:string}, any>("/api/register", { username, password });
+  return postJSON<LoginRequest, LoginResponse>("/api/login", { username, password });
 }
 
-// Messages
-export function createMessage(token: string, inBody: { receiver: string; subject: string; body: string }) {
-  return postJSON<typeof inBody, any>("/api/messages", inBody, token);
+export function register(username: string, password: string) {
+  return postJSON<RegisterRequest, { message: string }>("/api/register", { username, password });
 }
-export async function getMessages(token: string, page = 1, pageSize = 25) {
-  const res = await fetch(`${BASE}/api/messages?page=${page}&pageSize=${pageSize}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+
+// Messages API
+export function createMessage(token: string, messageData: CreateMessageRequest) {
+  return postJSON<CreateMessageRequest, CreateMessageResponse>("/api/messages", messageData, token);
+}
+
+export function getMessages(token: string, page = 1, pageSize = 25) {
+  return getJSON<PaginatedResponse<Message>>(`/api/messages?page=${page}&pageSize=${pageSize}`, token);
 }

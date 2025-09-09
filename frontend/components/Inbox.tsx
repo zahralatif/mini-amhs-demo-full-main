@@ -2,27 +2,13 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useApi } from '@/lib/useApi';
 import { useAuth } from '@/lib/auth';
+import type { Message, PaginatedResponse } from '@/lib/types';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
-import { DataGrid, GridColDef, GridPaginationModel, GridValueFormatterParams } from '@mui/x-data-grid';
-
-type Message = {
-  id: number;
-  sender: string;
-  receiver: string;
-  subject: string;
-  body: string;
-  created_at: string; // ISO string from backend
-};
-
-type PaginatedResponse = {
-  data: Message[];
-  pagination: {
-    totalItems: number;
-  };
-};
+import { DataGrid, GridColDef, GridPaginationModel } from '@mui/x-data-grid';
+import LoadingSpinner, { InboxSkeleton } from './LoadingSpinner';
 
 export default function Inbox({ refreshKey }: { refreshKey: number }) {
   const { getJSON } = useApi();
@@ -42,18 +28,54 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
 
   const columns: GridColDef<Message>[] = useMemo(
     () => [
-      { field: 'id', headerName: 'ID', width: 80 },
-      { field: 'subject', headerName: 'Subject', flex: 1, minWidth: 150 },
-      { field: 'sender', headerName: 'From', width: 140 },
+      { 
+        field: 'id', 
+        headerName: 'ID', 
+        width: 80,
+        headerAlign: 'center',
+        align: 'center',
+      },
+      { 
+        field: 'subject', 
+        headerName: 'Subject', 
+        flex: 1, 
+        minWidth: 150,
+        renderCell: (params) => (
+          <Typography 
+            variant="body2" 
+            sx={{ 
+              fontWeight: 400,
+              color: 'text.primary'
+            }}
+          >
+            {params.value}
+          </Typography>
+        ),
+      },
+      { 
+        field: 'sender', 
+        headerName: 'From', 
+        width: 140,
+        renderCell: (params) => (
+          <Typography variant="body2" color="text.secondary">
+            {params.value}
+          </Typography>
+        ),
+      },
       {
         field: 'created_at',
         headerName: 'Time',
         width: 200,
-        valueFormatter: (params: GridValueFormatterParams<string>) => {
-          if (!params.value) return '';
-          const d = new Date(params.value);
-          return isNaN(d.getTime()) ? String(params.value) : d.toLocaleString();
+        valueFormatter: (value: string) => {
+          if (!value) return '';
+          const d = new Date(value);
+          return isNaN(d.getTime()) ? String(value) : d.toLocaleString();
         },
+        renderCell: (params) => (
+          <Typography variant="body2" color="text.secondary">
+            {params.formattedValue}
+          </Typography>
+        ),
       },
     ],
     []
@@ -66,7 +88,7 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
       const { page, pageSize } = paginationModel;
       try {
         const url = `/api/messages?page=${page + 1}&pageSize=${pageSize}`;
-        const response = await getJSON<PaginatedResponse>(url);
+        const response = await getJSON<PaginatedResponse<Message>>(url);
         setRows(response.data);
         setRowCount(response.pagination.totalItems);
       } catch (e: any) {
@@ -82,10 +104,29 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
     load();
   }, [refreshKey, paginationModel, getJSON]);
 
+  if (loading && rows.length === 0) {
+    return (
+      <Paper elevation={1} sx={{ p: 3, height: '100%' }}>
+        <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 600 }}>
+          Inbox for: <strong>{username}</strong>
+        </Typography>
+        <InboxSkeleton />
+      </Paper>
+    );
+  }
+
   return (
-    <Paper elevation={1} sx={{ p: 3, height: '100%' }}>
+    <Paper 
+      elevation={1} 
+      sx={{ p: 3, height: '100%' }}
+      role="region"
+      aria-label="Message inbox"
+    >
       <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 600 }}>
         Inbox for: <strong>{username}</strong>
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        {rowCount} message{rowCount !== 1 ? 's' : ''} total
       </Typography>
       <div style={{ height: 480, width: '100%' }}>
         <DataGrid
@@ -98,17 +139,31 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
           paginationModel={paginationModel}
           onPaginationModelChange={setPaginationModel}
           loading={loading}
+          sx={{
+            '& .MuiDataGrid-cell': {
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+            },
+            '& .MuiDataGrid-columnHeaders': {
+              backgroundColor: 'background.paper',
+              borderBottom: '2px solid',
+              borderColor: 'divider',
+            },
+          }}
+          aria-label="Messages data grid"
         />
       </div>
       <Snackbar
         open={snack.open}
-        autoHideDuration={3000}
+        autoHideDuration={4000}
         onClose={() => setSnack((s) => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
         <Alert
           onClose={() => setSnack((s) => ({ ...s, open: false }))}
           severity={snack.severity}
           sx={{ width: '100%' }}
+          role="alert"
         >
           {snack.message}
         </Alert>
