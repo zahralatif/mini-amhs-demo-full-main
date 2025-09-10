@@ -19,16 +19,20 @@ export default function Page() {
 
   useEffect(() => {
     if (!isLoading && !token) {
-      router.push('/login');
+      router.push('/auth');
     }
   }, [isLoading, token, router]);
 
-  if (isLoading || !token) {
+  if (isLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <CircularProgress size={60} />
       </Box>
     );
+  }
+
+  if (!token) {
+    return null; // Will redirect to /auth
   }
 
   const handleMessageSent = () => {

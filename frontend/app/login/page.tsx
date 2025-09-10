@@ -12,7 +12,9 @@ import {
   TextField,
   Button,
   Alert,
+  Link,
 } from '@mui/material';
+import NextLink from 'next/link';
 import { useState } from 'react';
 
 const loginSchema = z.object({
@@ -55,8 +57,11 @@ export default function LoginPage() {
           alignItems: 'center',
         }}
       >
-        <Typography component="h1" variant="h5">
-          Login
+        <Typography component="h1" variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
+          Welcome Back
+        </Typography>
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+          Sign in to your account
         </Typography>
         <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ mt: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
@@ -93,6 +98,15 @@ export default function LoginPage() {
           >
             {isSubmitting ? 'Logging in...' : 'Login'}
           </Button>
+          <Box sx={{ textAlign: 'center', mt: 2 }}>
+            <Link component={NextLink} href="/register" variant="body2" sx={{ mr: 2 }}>
+              Don't have an account? Register here
+            </Link>
+            <br />
+            <Link component={NextLink} href="/auth" variant="body2" sx={{ mt: 1, display: 'inline-block' }}>
+              ← Back to Home
+            </Link>
+          </Box>
         </Box>
       </Box>
     </Container>

@@ -57,8 +57,11 @@ export default function RegisterPage() {
           alignItems: 'center',
         }}
       >
-        <Typography component="h1" variant="h5">
-          Register
+        <Typography component="h1" variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
+          Create Account
+        </Typography>
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+          Join Mini AMHS to start messaging
         </Typography>
         <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ mt: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
@@ -95,9 +98,15 @@ export default function RegisterPage() {
           >
             {isSubmitting ? 'Registering...' : 'Register'}
           </Button>
-          <Link component={NextLink} href="/login" variant="body2">
-            Already have an account? Login
-          </Link>
+          <Box sx={{ textAlign: 'center', mt: 2 }}>
+            <Link component={NextLink} href="/login" variant="body2" sx={{ mr: 2 }}>
+              Already have an account? Login here
+            </Link>
+            <br />
+            <Link component={NextLink} href="/auth" variant="body2" sx={{ mt: 1, display: 'inline-block' }}>
+              ← Back to Home
+            </Link>
+          </Box>
         </Box>
       </Box>
     </Container>
