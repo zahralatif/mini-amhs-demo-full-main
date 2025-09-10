@@ -72,7 +72,7 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
           <Typography 
             variant="body2" 
             sx={{ 
-              fontWeight: params.row.is_read ? 400 : 700,
+              fontWeight: showSent ? 400 : (params.row.is_read ? 400 : 700),
               color: 'text.primary',
               textAlign: 'center',
               width: '100%'
