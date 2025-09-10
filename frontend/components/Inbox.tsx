@@ -13,7 +13,7 @@ import LoadingSpinner, { InboxSkeleton } from './LoadingSpinner';
 export default function Inbox({ refreshKey }: { refreshKey: number }) {
   const { getJSON } = useApi();
   const { username } = useAuth();
-  const [rows, setRows] = useState<Message[]>([]);
+  const [rows, setRows] = useState<Message[] | null>([]);
   const [rowCount, setRowCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
@@ -89,8 +89,10 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
       try {
         const url = `/api/messages?page=${page + 1}&pageSize=${pageSize}`;
         const response = await getJSON<PaginatedResponse<Message>>(url);
-        setRows(response.data);
-        setRowCount(response.pagination.totalItems);
+        const safeData = Array.isArray((response as any)?.data) ? (response as any).data as Message[] : [];
+        const safeTotal = Number((response as any)?.pagination?.totalItems ?? safeData.length ?? 0);
+        setRows(safeData);
+        setRowCount(Number.isFinite(safeTotal) ? safeTotal : 0);
       } catch (e: any) {
         setSnack({
           open: true,
@@ -104,7 +106,10 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
     load();
   }, [refreshKey, paginationModel, getJSON]);
 
-  if (loading && rows.length === 0) {
+  const rowsArray: Message[] = Array.isArray(rows) ? rows : [];
+  const rowsLength = rowsArray.length;
+
+  if (loading && rowsLength === 0) {
     return (
       <Paper elevation={1} sx={{ p: 3, height: '100%' }}>
         <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 600 }}>
@@ -130,7 +135,7 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
       </Typography>
       <div style={{ height: 480, width: '100%' }}>
         <DataGrid
-          rows={rows}
+          rows={rowsArray}
           columns={columns}
           disableRowSelectionOnClick
           pageSizeOptions={[5, 10, 25]}
