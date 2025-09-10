@@ -1,6 +1,6 @@
-CREATE DATABASE mini_amhs;
+CREATE DATABASE amhs_demo;
 
-\c mini_amhs;
+\c amhs_demo;
 
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,

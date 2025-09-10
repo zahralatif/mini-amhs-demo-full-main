@@ -1,3 +1,7 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {};
+const nextConfig = {
+  experimental: {
+    // Remove deprecated appDir option
+  }
+};
 module.exports = nextConfig;

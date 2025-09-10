@@ -9,14 +9,14 @@ export function useApi() {
 
   const getJSON = useCallback(
     <T>(path: string) => {
-      return baseGetJSON<T>(path, token);
+      return baseGetJSON<T>(path, token || undefined);
     },
     [token]
   );
 
   const postJSON = useCallback(
-    <T>(path: string, body: any) => {
-      return basePostJSON<T>(path, body, token);
+    <TIn, TOut>(path: string, body: TIn) => {
+      return basePostJSON<TIn, TOut>(path, body, token || undefined);
     },
     [token]
   );

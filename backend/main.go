@@ -39,9 +39,6 @@ func main() {
 	// Protected
 	mux.Handle("/api/messages", jwtAuthMiddleware(messagesHandler(db)))
 
-	mux.Handle("/api/auth/register", registerHandler(db))
-	mux.Handle("/api/auth/login",    loginHandler(db))
-
 	addr := ":8080"
 	log.Printf("API listening on %s", addr)
 	if err := http.ListenAndServe(addr, loggingMiddleware(mux)); err != nil {
