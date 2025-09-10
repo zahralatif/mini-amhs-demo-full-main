@@ -232,29 +232,31 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
         >
           {allSelectedAreRead ? 'Mark as Unread' : 'Mark as Read'}
         </Button>
-        <Button
-          variant="outlined"
-          color="secondary"
-          size="small"
-          disabled={selection.length === 0 || loading || showArchived}
-          onClick={async () => {
-            try {
-              setLoading(true);
-              const ids = selection.map((id) => Number(id)).filter((n) => Number.isFinite(n));
-              if (ids.length === 0) return;
-              await updateMessages(localStorage.getItem('jwt_token') || '', { ids, is_archived: true });
-              setSnack({ open: true, message: `Archived ${ids.length} message(s)`, severity: 'success' });
-              setPaginationModel((pm) => ({ ...pm }));
-            } catch (e: any) {
-              setSnack({ open: true, message: e.message || 'Failed to archive', severity: 'error' });
-            } finally {
-              setLoading(false);
-              setSelection([]);
-            }
-          }}
-        >
-          Archive
-        </Button>
+        {!showArchived && (
+          <Button
+            variant="outlined"
+            color="secondary"
+            size="small"
+            disabled={selection.length === 0 || loading}
+            onClick={async () => {
+              try {
+                setLoading(true);
+                const ids = selection.map((id) => Number(id)).filter((n) => Number.isFinite(n));
+                if (ids.length === 0) return;
+                await updateMessages(localStorage.getItem('jwt_token') || '', { ids, is_archived: true });
+                setSnack({ open: true, message: `Archived ${ids.length} message(s)`, severity: 'success' });
+                setPaginationModel((pm) => ({ ...pm }));
+              } catch (e: any) {
+                setSnack({ open: true, message: e.message || 'Failed to archive', severity: 'error' });
+              } finally {
+                setLoading(false);
+                setSelection([]);
+              }
+            }}
+          >
+            Archive
+          </Button>
+        )}
       </Stack>
       <div style={{ height: 480, width: '100%' }}>
         <DataGrid
