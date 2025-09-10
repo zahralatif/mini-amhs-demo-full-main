@@ -12,6 +12,11 @@ import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import { deleteMessages, updateMessages } from '@/lib/api';
 import LoadingSpinner, { InboxSkeleton } from './LoadingSpinner';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import Divider from '@mui/material/Divider';
 
 export default function Inbox({ refreshKey }: { refreshKey: number }) {
   const { getJSON } = useApi();
@@ -30,6 +35,15 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
   }>({ open: false, message: '', severity: 'success' });
   const [selection, setSelection] = useState<GridRowSelectionModel>([]);
   const [showArchived, setShowArchived] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedMessageDialog, setSelectedMessageDialog] = useState<Message | null>(null);
+  const rowsArray: Message[] = Array.isArray(rows) ? rows : [];
+  const selectedMessages: Message[] = useMemo(() => {
+    const ids = new Set(selection.map((id) => Number(id)));
+    return rowsArray.filter((m) => ids.has(Number(m.id)));
+  }, [selection, rowsArray]);
+  const allSelectedAreRead = selectedMessages.length > 0 && selectedMessages.every((m) => !!m.is_read);
+  const allSelectedAreUnread = selectedMessages.length > 0 && selectedMessages.every((m) => !m.is_read);
 
   const columns: GridColDef<Message>[] = useMemo(
     () => [
@@ -111,7 +125,6 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
     load();
   }, [refreshKey, paginationModel, getJSON, showArchived]);
 
-  const rowsArray: Message[] = Array.isArray(rows) ? rows : [];
   const rowsLength = rowsArray.length;
 
   if (loading && rowsLength === 0) {
@@ -206,45 +219,24 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
               setLoading(true);
               const ids = selection.map((id) => Number(id)).filter((n) => Number.isFinite(n));
               if (ids.length === 0) return;
-              await updateMessages(localStorage.getItem('jwt_token') || '', { ids, is_read: true });
-              setSnack({ open: true, message: `Marked ${ids.length} as read`, severity: 'success' });
+              const targetIsRead = !allSelectedAreRead;
+              await updateMessages(localStorage.getItem('jwt_token') || '', { ids, is_read: targetIsRead });
+              setSnack({ open: true, message: targetIsRead ? `Marked ${ids.length} as read` : `Marked ${ids.length} as unread`, severity: 'success' });
               setPaginationModel((pm) => ({ ...pm }));
             } catch (e: any) {
-              setSnack({ open: true, message: e.message || 'Failed to mark read', severity: 'error' });
+              setSnack({ open: true, message: e.message || 'Failed to toggle read state', severity: 'error' });
             } finally {
               setLoading(false);
             }
           }}
         >
-          Mark as Read
-        </Button>
-        <Button
-          variant="outlined"
-          color="inherit"
-          size="small"
-          disabled={selection.length === 0 || loading}
-          onClick={async () => {
-            try {
-              setLoading(true);
-              const ids = selection.map((id) => Number(id)).filter((n) => Number.isFinite(n));
-              if (ids.length === 0) return;
-              await updateMessages(localStorage.getItem('jwt_token') || '', { ids, is_read: false });
-              setSnack({ open: true, message: `Marked ${ids.length} as unread`, severity: 'success' });
-              setPaginationModel((pm) => ({ ...pm }));
-            } catch (e: any) {
-              setSnack({ open: true, message: e.message || 'Failed to mark unread', severity: 'error' });
-            } finally {
-              setLoading(false);
-            }
-          }}
-        >
-          Mark as Unread
+          {allSelectedAreRead ? 'Mark as Unread' : 'Mark as Read'}
         </Button>
         <Button
           variant="outlined"
           color="secondary"
           size="small"
-          disabled={selection.length === 0 || loading}
+          disabled={selection.length === 0 || loading || showArchived}
           onClick={async () => {
             try {
               setLoading(true);
@@ -271,7 +263,8 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
           disableRowSelectionOnClick
           onRowDoubleClick={async (params) => {
             const m = params.row as Message;
-            alert(`From: ${m.sender}\nSubject: ${m.subject}\n\n${m.body}`);
+            setSelectedMessageDialog(m);
+            setDialogOpen(true);
             try {
               if (!m.is_read) {
                 await updateMessages(localStorage.getItem('jwt_token') || '', { ids: [Number(m.id)], is_read: true });
@@ -302,6 +295,73 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
           aria-label="Messages data grid"
         />
       </div>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {selectedMessageDialog?.subject || 'Message'}
+        </DialogTitle>
+        <DialogContent dividers>
+          {selectedMessageDialog && (
+            <>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                From: <strong>{selectedMessageDialog.sender}</strong>
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                To: <strong>{selectedMessageDialog.receiver}</strong>
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+                {selectedMessageDialog.body}
+              </Typography>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDialogOpen(false)}>Close</Button>
+          {selectedMessageDialog && (
+            <>
+              <Button
+                onClick={async () => {
+                  try {
+                    const target = !selectedMessageDialog.is_read;
+                    await updateMessages(localStorage.getItem('jwt_token') || '', { ids: [Number(selectedMessageDialog.id)], is_read: target });
+                    setPaginationModel((pm) => ({ ...pm }));
+                    setSelectedMessageDialog({ ...selectedMessageDialog, is_read: target });
+                  } catch {}
+                }}
+              >
+                {selectedMessageDialog.is_read ? 'Mark as Unread' : 'Mark as Read'}
+              </Button>
+              {!showArchived ? (
+                <Button
+                  color="secondary"
+                  onClick={async () => {
+                    try {
+                      await updateMessages(localStorage.getItem('jwt_token') || '', { ids: [Number(selectedMessageDialog.id)], is_archived: true });
+                      setPaginationModel((pm) => ({ ...pm }));
+                      setDialogOpen(false);
+                    } catch {}
+                  }}
+                >
+                  Archive
+                </Button>
+              ) : (
+                <Button
+                  color="secondary"
+                  onClick={async () => {
+                    try {
+                      await updateMessages(localStorage.getItem('jwt_token') || '', { ids: [Number(selectedMessageDialog.id)], is_archived: false });
+                      setPaginationModel((pm) => ({ ...pm }));
+                      setDialogOpen(false);
+                    } catch {}
+                  }}
+                >
+                  Unarchive
+                </Button>
+              )}
+            </>
+          )}
+        </DialogActions>
+      </Dialog>
       <Snackbar
         open={snack.open}
         autoHideDuration={4000}
