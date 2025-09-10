@@ -83,14 +83,14 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
         ),
       },
       { 
-        field: 'sender', 
-        headerName: 'From', 
+        field: showSent ? 'receiver' : 'sender', 
+        headerName: showSent ? 'To' : 'From', 
         width: 140,
         headerAlign: 'center',
         align: 'center',
         renderCell: (params) => (
           <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', width: '100%' }}>
-            {params.value}
+            {showSent ? (params.row as Message).receiver : (params.row as Message).sender}
           </Typography>
         ),
       },
@@ -112,7 +112,7 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
         ),
       },
     ],
-    []
+    [showSent]
   );
 
   useEffect(() => {
