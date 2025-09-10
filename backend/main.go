@@ -10,7 +10,7 @@ import (
 func main() {
 	dsn := os.Getenv("DB_DSN")
 	if dsn == "" {
-		log.Fatal(`DB_DSN not set (e.g. postgres://user:pass@localhost:5432/mini_amhs?sslmode=disable)`)
+		log.Fatal(`DB_DSN not set (e.g. postgres://user:pass@localhost:5432/mini_amhs?sslmode=disable) `)
 	}
 	if os.Getenv("JWT_SECRET_KEY") == "" {
 		log.Fatal("JWT_SECRET_KEY not set")
@@ -52,7 +52,7 @@ func setCORS(w http.ResponseWriter, r *http.Request) {
 		origin = "http://localhost:3000"
 	}
 	w.Header().Set("Access-Control-Allow-Origin", origin)
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 }

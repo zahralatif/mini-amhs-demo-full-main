@@ -48,7 +48,7 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
           <Typography 
             variant="body2" 
             sx={{ 
-              fontWeight: 400,
+              fontWeight: params.row.is_read ? 400 : 700,
               color: 'text.primary'
             }}
           >
@@ -235,6 +235,16 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
           rows={rowsArray}
           columns={columns}
           disableRowSelectionOnClick
+          onRowDoubleClick={async (params) => {
+            const m = params.row as Message;
+            alert(`From: ${m.sender}\nSubject: ${m.subject}\n\n${m.body}`);
+            try {
+              if (!m.is_read) {
+                await updateMessages(localStorage.getItem('jwt_token') || '', { ids: [Number(m.id)], is_read: true });
+                setPaginationModel((pm) => ({ ...pm }));
+              }
+            } catch {}
+          }}
           checkboxSelection
           rowSelectionModel={selection}
           onRowSelectionModelChange={setSelection}

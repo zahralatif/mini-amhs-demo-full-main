@@ -41,6 +41,8 @@ export interface Message {
   receiver: string;
   subject: string;
   body: string;
+  is_read?: boolean;
+  is_archived?: boolean;
   created_at: string; // ISO string from backend
   updated_at?: string;
 }
