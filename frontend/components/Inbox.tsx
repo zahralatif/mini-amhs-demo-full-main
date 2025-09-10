@@ -29,6 +29,7 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
     severity: 'success' | 'error';
   }>({ open: false, message: '', severity: 'success' });
   const [selection, setSelection] = useState<GridRowSelectionModel>([]);
+  const [showArchived, setShowArchived] = useState(false);
 
   const columns: GridColDef<Message>[] = useMemo(
     () => [
@@ -91,7 +92,7 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
       setSnack((s) => ({ ...s, open: false }));
       const { page, pageSize } = paginationModel;
       try {
-        const url = `/api/messages?page=${page + 1}&pageSize=${pageSize}`;
+        const url = `/api/messages?page=${page + 1}&pageSize=${pageSize}&archived=${showArchived}`;
         const response = await getJSON<PaginatedResponse<Message>>(url);
         const safeData = Array.isArray((response as any)?.data) ? (response as any).data as Message[] : [];
         const safeTotal = Number((response as any)?.pagination?.totalItems ?? safeData.length ?? 0);
@@ -108,7 +109,7 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
       }
     }
     load();
-  }, [refreshKey, paginationModel, getJSON]);
+  }, [refreshKey, paginationModel, getJSON, showArchived]);
 
   const rowsArray: Message[] = Array.isArray(rows) ? rows : [];
   const rowsLength = rowsArray.length;
@@ -139,6 +140,14 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
       </Typography>
       <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
         <Button
+          variant={showArchived ? 'contained' : 'outlined'}
+          color="inherit"
+          size="small"
+          onClick={() => setShowArchived((v) => !v)}
+        >
+          {showArchived ? 'Showing Archived' : 'Show Archived'}
+        </Button>
+        <Button
           variant="outlined"
           color="error"
           size="small"
@@ -162,6 +171,31 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
         >
           Delete Selected
         </Button>
+        {showArchived && (
+          <Button
+            variant="outlined"
+            color="secondary"
+            size="small"
+            disabled={selection.length === 0 || loading}
+            onClick={async () => {
+              try {
+                setLoading(true);
+                const ids = selection.map((id) => Number(id)).filter((n) => Number.isFinite(n));
+                if (ids.length === 0) return;
+                await updateMessages(localStorage.getItem('jwt_token') || '', { ids, is_archived: false });
+                setSnack({ open: true, message: `Unarchived ${ids.length} message(s)`, severity: 'success' });
+                setPaginationModel((pm) => ({ ...pm }));
+              } catch (e: any) {
+                setSnack({ open: true, message: e.message || 'Failed to unarchive', severity: 'error' });
+              } finally {
+                setLoading(false);
+                setSelection([]);
+              }
+            }}
+          >
+            Unarchive
+          </Button>
+        )}
         <Button
           variant="outlined"
           color="primary"

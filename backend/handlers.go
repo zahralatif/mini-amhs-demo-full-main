@@ -75,9 +75,16 @@ func messagesHandler(db *sql.DB) http.Handler {
 			if pageSize < 1 || pageSize > 100 {
 				pageSize = 25
 			}
+			archived := r.URL.Query().Get("archived") == "true"
 
 			var totalItems int64
-			if err := db.QueryRow(`SELECT COUNT(*) FROM messages WHERE receiver=$1 AND is_archived=FALSE`, username).Scan(&totalItems); err != nil {
+			countQuery := "SELECT COUNT(*) FROM messages WHERE receiver=$1 AND is_archived="
+			if archived {
+				countQuery += "TRUE"
+			} else {
+				countQuery += "FALSE"
+			}
+			if err := db.QueryRow(countQuery, username).Scan(&totalItems); err != nil {
 				log.Println("count query error:", err)
 				http.Error(w, "db error", http.StatusInternalServerError)
 				return
@@ -89,10 +96,10 @@ func messagesHandler(db *sql.DB) http.Handler {
 			rows, err := db.Query(
 				`SELECT id, sender, receiver, subject, body, is_read, is_archived, created_at
 				 FROM messages
-				 WHERE receiver=$1 AND is_archived=FALSE
+				 WHERE receiver=$1 AND is_archived=$2
 				 ORDER BY created_at DESC
-				 LIMIT $2 OFFSET $3`,
-				username, pageSize, offset,
+				 LIMIT $3 OFFSET $4`,
+				username, archived, pageSize, offset,
 			)
 			if err != nil {
 				log.Println("select query error:", err)

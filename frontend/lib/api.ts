@@ -56,8 +56,8 @@ export function createMessage(token: string, messageData: CreateMessageRequest) 
   return postJSON<CreateMessageRequest, CreateMessageResponse>("/api/messages", messageData, token);
 }
 
-export function getMessages(token: string, page = 1, pageSize = 25) {
-  return getJSON<PaginatedResponse<Message>>(`/api/messages?page=${page}&pageSize=${pageSize}`, token);
+export function getMessages(token: string, page = 1, pageSize = 25, archived = false) {
+  return getJSON<PaginatedResponse<Message>>(`/api/messages?page=${page}&pageSize=${pageSize}&archived=${archived}`, token);
 }
 
 export async function deleteMessages(token: string, ids: number[]) {
