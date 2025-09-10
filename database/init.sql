@@ -17,8 +17,14 @@ CREATE TABLE IF NOT EXISTS messages (
   receiver TEXT NOT NULL,
   subject TEXT NOT NULL,
   body TEXT NOT NULL,
+  is_read BOOLEAN NOT NULL DEFAULT FALSE,
+  is_archived BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_messages_receiver_created_at
   ON messages(receiver, created_at DESC);
+
+-- Backfill for existing databases
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_read BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_archived BOOLEAN NOT NULL DEFAULT FALSE;

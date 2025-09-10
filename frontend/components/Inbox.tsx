@@ -7,7 +7,10 @@ import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
-import { DataGrid, GridColDef, GridPaginationModel } from '@mui/x-data-grid';
+import { DataGrid, GridColDef, GridPaginationModel, GridRowSelectionModel } from '@mui/x-data-grid';
+import Button from '@mui/material/Button';
+import Stack from '@mui/material/Stack';
+import { deleteMessages, updateMessages } from '@/lib/api';
 import LoadingSpinner, { InboxSkeleton } from './LoadingSpinner';
 
 export default function Inbox({ refreshKey }: { refreshKey: number }) {
@@ -25,6 +28,7 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
     message: string;
     severity: 'success' | 'error';
   }>({ open: false, message: '', severity: 'success' });
+  const [selection, setSelection] = useState<GridRowSelectionModel>([]);
 
   const columns: GridColDef<Message>[] = useMemo(
     () => [
@@ -133,11 +137,107 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {rowCount} message{rowCount !== 1 ? 's' : ''} total
       </Typography>
+      <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
+        <Button
+          variant="outlined"
+          color="error"
+          size="small"
+          disabled={selection.length === 0 || loading}
+          onClick={async () => {
+            try {
+              setLoading(true);
+              const ids = selection.map((id) => Number(id)).filter((n) => Number.isFinite(n));
+              if (ids.length === 0) return;
+              await deleteMessages(localStorage.getItem('jwt_token') || '', ids);
+              setSnack({ open: true, message: `Deleted ${ids.length} message(s)`, severity: 'success' });
+              // Refresh
+              setPaginationModel((pm) => ({ ...pm }));
+            } catch (e: any) {
+              setSnack({ open: true, message: e.message || 'Failed to delete', severity: 'error' });
+            } finally {
+              setLoading(false);
+              setSelection([]);
+            }
+          }}
+        >
+          Delete Selected
+        </Button>
+        <Button
+          variant="outlined"
+          color="primary"
+          size="small"
+          disabled={selection.length === 0 || loading}
+          onClick={async () => {
+            try {
+              setLoading(true);
+              const ids = selection.map((id) => Number(id)).filter((n) => Number.isFinite(n));
+              if (ids.length === 0) return;
+              await updateMessages(localStorage.getItem('jwt_token') || '', { ids, is_read: true });
+              setSnack({ open: true, message: `Marked ${ids.length} as read`, severity: 'success' });
+              setPaginationModel((pm) => ({ ...pm }));
+            } catch (e: any) {
+              setSnack({ open: true, message: e.message || 'Failed to mark read', severity: 'error' });
+            } finally {
+              setLoading(false);
+            }
+          }}
+        >
+          Mark as Read
+        </Button>
+        <Button
+          variant="outlined"
+          color="inherit"
+          size="small"
+          disabled={selection.length === 0 || loading}
+          onClick={async () => {
+            try {
+              setLoading(true);
+              const ids = selection.map((id) => Number(id)).filter((n) => Number.isFinite(n));
+              if (ids.length === 0) return;
+              await updateMessages(localStorage.getItem('jwt_token') || '', { ids, is_read: false });
+              setSnack({ open: true, message: `Marked ${ids.length} as unread`, severity: 'success' });
+              setPaginationModel((pm) => ({ ...pm }));
+            } catch (e: any) {
+              setSnack({ open: true, message: e.message || 'Failed to mark unread', severity: 'error' });
+            } finally {
+              setLoading(false);
+            }
+          }}
+        >
+          Mark as Unread
+        </Button>
+        <Button
+          variant="outlined"
+          color="secondary"
+          size="small"
+          disabled={selection.length === 0 || loading}
+          onClick={async () => {
+            try {
+              setLoading(true);
+              const ids = selection.map((id) => Number(id)).filter((n) => Number.isFinite(n));
+              if (ids.length === 0) return;
+              await updateMessages(localStorage.getItem('jwt_token') || '', { ids, is_archived: true });
+              setSnack({ open: true, message: `Archived ${ids.length} message(s)`, severity: 'success' });
+              setPaginationModel((pm) => ({ ...pm }));
+            } catch (e: any) {
+              setSnack({ open: true, message: e.message || 'Failed to archive', severity: 'error' });
+            } finally {
+              setLoading(false);
+              setSelection([]);
+            }
+          }}
+        >
+          Archive
+        </Button>
+      </Stack>
       <div style={{ height: 480, width: '100%' }}>
         <DataGrid
           rows={rowsArray}
           columns={columns}
           disableRowSelectionOnClick
+          checkboxSelection
+          rowSelectionModel={selection}
+          onRowSelectionModelChange={setSelection}
           pageSizeOptions={[5, 10, 25]}
           paginationMode="server"
           rowCount={rowCount}

@@ -59,3 +59,38 @@ export function createMessage(token: string, messageData: CreateMessageRequest) 
 export function getMessages(token: string, page = 1, pageSize = 25) {
   return getJSON<PaginatedResponse<Message>>(`/api/messages?page=${page}&pageSize=${pageSize}`, token);
 }
+
+export async function deleteMessages(token: string, ids: number[]) {
+  const res = await fetch(`${BASE}/api/messages`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ ids }),
+  });
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(errorText || `HTTP ${res.status}: ${res.statusText}`);
+  }
+  return res.json() as Promise<{ deleted: number }>; 
+}
+
+export async function updateMessages(
+  token: string,
+  payload: { ids: number[]; is_read?: boolean; is_archived?: boolean }
+) {
+  const res = await fetch(`${BASE}/api/messages`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(errorText || `HTTP ${res.status}: ${res.statusText}`);
+  }
+  return res.json() as Promise<{ updated: number }>; 
+}

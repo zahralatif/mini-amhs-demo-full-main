@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/lib/pq"
 )
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
@@ -43,8 +45,8 @@ func messagesHandler(db *sql.DB) http.Handler {
 			}
 
 			in.Receiver = strings.TrimSpace(in.Receiver)
-			in.Subject  = strings.TrimSpace(in.Subject)
-			in.Body     = strings.TrimSpace(in.Body)
+			in.Subject = strings.TrimSpace(in.Subject)
+			in.Body = strings.TrimSpace(in.Body)
 			if in.Receiver == "" || in.Subject == "" || in.Body == "" {
 				http.Error(w, "missing fields", http.StatusBadRequest)
 				return
@@ -54,9 +56,9 @@ func messagesHandler(db *sql.DB) http.Handler {
 			err := db.QueryRow(
 				`INSERT INTO messages(sender, receiver, subject, body)
 				 VALUES($1,$2,$3,$4)
-				 RETURNING id, sender, receiver, subject, body, created_at`,
+				 RETURNING id, sender, receiver, subject, body, is_read, is_archived, created_at`,
 				username, in.Receiver, in.Subject, in.Body,
-			).Scan(&msg.ID, &msg.Sender, &msg.Receiver, &msg.Subject, &msg.Body, &msg.CreatedAt)
+			).Scan(&msg.ID, &msg.Sender, &msg.Receiver, &msg.Subject, &msg.Body, &msg.IsRead, &msg.IsArchived, &msg.CreatedAt)
 			if err != nil {
 				log.Println("insert error:", err)
 				http.Error(w, "db error", http.StatusInternalServerError)
@@ -75,7 +77,7 @@ func messagesHandler(db *sql.DB) http.Handler {
 			}
 
 			var totalItems int64
-			if err := db.QueryRow(`SELECT COUNT(*) FROM messages WHERE receiver=$1`, username).Scan(&totalItems); err != nil {
+			if err := db.QueryRow(`SELECT COUNT(*) FROM messages WHERE receiver=$1 AND is_archived=FALSE`, username).Scan(&totalItems); err != nil {
 				log.Println("count query error:", err)
 				http.Error(w, "db error", http.StatusInternalServerError)
 				return
@@ -85,9 +87,9 @@ func messagesHandler(db *sql.DB) http.Handler {
 			offset := (page - 1) * pageSize
 
 			rows, err := db.Query(
-				`SELECT id, sender, receiver, subject, body, created_at
+				`SELECT id, sender, receiver, subject, body, is_read, is_archived, created_at
 				 FROM messages
-				 WHERE receiver=$1
+				 WHERE receiver=$1 AND is_archived=FALSE
 				 ORDER BY created_at DESC
 				 LIMIT $2 OFFSET $3`,
 				username, pageSize, offset,
@@ -102,7 +104,7 @@ func messagesHandler(db *sql.DB) http.Handler {
 			var messages []Message
 			for rows.Next() {
 				var m Message
-				if err := rows.Scan(&m.ID, &m.Sender, &m.Receiver, &m.Subject, &m.Body, &m.CreatedAt); err != nil {
+				if err := rows.Scan(&m.ID, &m.Sender, &m.Receiver, &m.Subject, &m.Body, &m.IsRead, &m.IsArchived, &m.CreatedAt); err != nil {
 					log.Println("scan error:", err)
 					continue
 				}
@@ -119,6 +121,80 @@ func messagesHandler(db *sql.DB) http.Handler {
 				},
 			}
 			writeJSON(w, response)
+
+		case http.MethodPut:
+			var in struct {
+				IDs        []int64 `json:"ids"`
+				IsRead     *bool   `json:"is_read"`
+				IsArchived *bool   `json:"is_archived"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+				http.Error(w, "invalid json", http.StatusBadRequest)
+				return
+			}
+			if len(in.IDs) == 0 {
+				http.Error(w, "no ids provided", http.StatusBadRequest)
+				return
+			}
+			if in.IsRead == nil && in.IsArchived == nil {
+				http.Error(w, "no update fields provided", http.StatusBadRequest)
+				return
+			}
+
+			// Build dynamic update
+			q := "UPDATE messages SET "
+			args := []any{}
+			idx := 1
+			if in.IsRead != nil {
+				q += "is_read=$" + strconv.Itoa(idx)
+				args = append(args, *in.IsRead)
+				idx++
+			}
+			if in.IsArchived != nil {
+				if len(args) > 0 {
+					q += ", "
+				}
+				q += "is_archived=$" + strconv.Itoa(idx)
+				args = append(args, *in.IsArchived)
+				idx++
+			}
+			q += " WHERE receiver=$" + strconv.Itoa(idx) + " AND id = ANY($" + strconv.Itoa(idx+1) + ")"
+			args = append(args, username, pq.Array(in.IDs))
+
+			res, err := db.Exec(q, args...)
+			if err != nil {
+				log.Println("update error:", err)
+				http.Error(w, "db error", http.StatusInternalServerError)
+				return
+			}
+			n, _ := res.RowsAffected()
+			writeJSON(w, map[string]any{"updated": n})
+
+		case http.MethodDelete:
+			var in struct {
+				IDs []int64 `json:"ids"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+				http.Error(w, "invalid json", http.StatusBadRequest)
+				return
+			}
+			if len(in.IDs) == 0 {
+				http.Error(w, "no ids provided", http.StatusBadRequest)
+				return
+			}
+
+			res, err := db.Exec(
+				`DELETE FROM messages WHERE receiver=$1 AND id = ANY($2)`,
+				username,
+				pq.Array(in.IDs),
+			)
+			if err != nil {
+				log.Println("delete error:", err)
+				http.Error(w, "db error", http.StatusInternalServerError)
+				return
+			}
+			n, _ := res.RowsAffected()
+			writeJSON(w, map[string]any{"deleted": n})
 
 		default:
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)

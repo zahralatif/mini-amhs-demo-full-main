@@ -10,12 +10,14 @@ type User struct {
 }
 
 type Message struct {
-	ID        int64     `json:"id"`
-	Sender    string    `json:"sender"`
-	Receiver  string    `json:"receiver"`
-	Subject   string    `json:"subject"`
-	Body      string    `json:"body"`
-	CreatedAt time.Time `json:"created_at"`
+	ID         int64     `json:"id"`
+	Sender     string    `json:"sender"`
+	Receiver   string    `json:"receiver"`
+	Subject    string    `json:"subject"`
+	Body       string    `json:"body"`
+	IsRead     bool      `json:"is_read"`
+	IsArchived bool      `json:"is_archived"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 type PaginatedMessagesResponse struct {
