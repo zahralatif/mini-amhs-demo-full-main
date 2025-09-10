@@ -17,6 +17,8 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Divider from '@mui/material/Divider';
+import IconButton from '@mui/material/IconButton';
+import CloseIcon from '@mui/icons-material/Close';
 import TextField from '@mui/material/TextField';
 
 export default function Inbox({ refreshKey }: { refreshKey: number }) {
@@ -340,9 +342,25 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
           aria-label="Messages data grid"
         />
       </div>
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>
+      <Dialog
+        open={dialogOpen}
+        onClose={(_, reason) => {
+          if (replyMode && (reason === 'backdropClick' || reason === 'escapeKeyDown')) return;
+          setDialogOpen(false);
+        }}
+        disableEscapeKeyDown={replyMode}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ pr: 6 }}>
           {selectedMessageDialog?.subject || 'Message'}
+          <IconButton
+            aria-label="close"
+            onClick={() => setDialogOpen(false)}
+            sx={{ position: 'absolute', right: 8, top: 8 }}
+          >
+            <CloseIcon />
+          </IconButton>
         </DialogTitle>
         <DialogContent dividers>
           {selectedMessageDialog && (
@@ -381,7 +399,6 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Close</Button>
           {selectedMessageDialog && (
             <>
               {!replyMode && (
