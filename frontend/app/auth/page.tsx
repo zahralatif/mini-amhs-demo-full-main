@@ -140,10 +140,10 @@ export default function AuthPage() {
             p: 3, 
             maxWidth: 600, 
             textAlign: 'center',
-            backgroundColor: 'grey.50'
+            backgroundColor: 'background.paper'
           }}
         >
-          <Typography variant="body2" color="text.primary">
+          <Typography variant="body2" color="text.secondary">
             <strong>Demo Features:</strong> User authentication, real-time messaging, 
             responsive design with Material-UI, and PostgreSQL backend.
           </Typography>
