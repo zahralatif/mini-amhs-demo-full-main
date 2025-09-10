@@ -17,6 +17,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Divider from '@mui/material/Divider';
+import TextField from '@mui/material/TextField';
 
 export default function Inbox({ refreshKey }: { refreshKey: number }) {
   const { getJSON } = useApi();
@@ -37,6 +38,9 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
   const [showArchived, setShowArchived] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedMessageDialog, setSelectedMessageDialog] = useState<Message | null>(null);
+  const [replyMode, setReplyMode] = useState(false);
+  const [replySubject, setReplySubject] = useState('');
+  const [replyBody, setReplyBody] = useState('');
   const rowsArray: Message[] = Array.isArray(rows) ? rows : [];
   const selectedMessages: Message[] = useMemo(() => {
     const ids = new Set(selection.map((id) => Number(id)));
@@ -59,12 +63,16 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
         headerName: 'Subject', 
         flex: 1, 
         minWidth: 150,
+        headerAlign: 'center',
+        align: 'center',
         renderCell: (params) => (
           <Typography 
             variant="body2" 
             sx={{ 
               fontWeight: params.row.is_read ? 400 : 700,
-              color: 'text.primary'
+              color: 'text.primary',
+              textAlign: 'center',
+              width: '100%'
             }}
           >
             {params.value}
@@ -75,8 +83,10 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
         field: 'sender', 
         headerName: 'From', 
         width: 140,
+        headerAlign: 'center',
+        align: 'center',
         renderCell: (params) => (
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', width: '100%' }}>
             {params.value}
           </Typography>
         ),
@@ -85,13 +95,15 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
         field: 'created_at',
         headerName: 'Time',
         width: 200,
+        headerAlign: 'center',
+        align: 'center',
         valueFormatter: (value: string) => {
           if (!value) return '';
           const d = new Date(value);
           return isNaN(d.getTime()) ? String(value) : d.toLocaleString();
         },
         renderCell: (params) => (
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', width: '100%' }}>
             {params.formattedValue}
           </Typography>
         ),
@@ -267,6 +279,9 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
             const m = params.row as Message;
             setSelectedMessageDialog(m);
             setDialogOpen(true);
+            setReplyMode(false);
+            setReplySubject(m.subject?.startsWith('Re: ') ? m.subject : `Re: ${m.subject}`);
+            setReplyBody(`\n\n--- Original message ---\nFrom: ${m.sender}\nTo: ${m.receiver}\nSent: ${new Date(m.created_at).toLocaleString()}\n\n${m.body}`);
             try {
               if (!m.is_read) {
                 await updateMessages(localStorage.getItem('jwt_token') || '', { ids: [Number(m.id)], is_read: true });
@@ -311,9 +326,29 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
                 To: <strong>{selectedMessageDialog.receiver}</strong>
               </Typography>
               <Divider sx={{ mb: 2 }} />
-              <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
-                {selectedMessageDialog.body}
-              </Typography>
+              {!replyMode && (
+                <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+                  {selectedMessageDialog.body}
+                </Typography>
+              )}
+              {replyMode && (
+                <Stack spacing={2}>
+                  <TextField
+                    label="Subject"
+                    value={replySubject}
+                    onChange={(e) => setReplySubject(e.target.value)}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Message"
+                    value={replyBody}
+                    onChange={(e) => setReplyBody(e.target.value)}
+                    multiline
+                    minRows={4}
+                    fullWidth
+                  />
+                </Stack>
+              )}
             </>
           )}
         </DialogContent>
@@ -321,18 +356,63 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
           <Button onClick={() => setDialogOpen(false)}>Close</Button>
           {selectedMessageDialog && (
             <>
-              <Button
-                onClick={async () => {
-                  try {
-                    const target = !selectedMessageDialog.is_read;
-                    await updateMessages(localStorage.getItem('jwt_token') || '', { ids: [Number(selectedMessageDialog.id)], is_read: target });
-                    setPaginationModel((pm) => ({ ...pm }));
-                    setSelectedMessageDialog({ ...selectedMessageDialog, is_read: target });
-                  } catch {}
-                }}
-              >
-                {selectedMessageDialog.is_read ? 'Mark as Unread' : 'Mark as Read'}
-              </Button>
+              {!replyMode && (
+                <Button
+                  onClick={async () => {
+                    try {
+                      const target = !selectedMessageDialog.is_read;
+                      await updateMessages(localStorage.getItem('jwt_token') || '', { ids: [Number(selectedMessageDialog.id)], is_read: target });
+                      setPaginationModel((pm) => ({ ...pm }));
+                      setSelectedMessageDialog({ ...selectedMessageDialog, is_read: target });
+                    } catch {}
+                  }}
+                >
+                  {selectedMessageDialog.is_read ? 'Mark as Unread' : 'Mark as Read'}
+                </Button>
+              )}
+              {!replyMode && (
+                <Button
+                  variant="contained"
+                  onClick={() => setReplyMode(true)}
+                >
+                  Reply
+                </Button>
+              )}
+              {replyMode && (
+                <>
+                  <Button onClick={() => setReplyMode(false)}>Cancel Reply</Button>
+                  <Button
+                    variant="contained"
+                    onClick={async () => {
+                      try {
+                        if (!selectedMessageDialog) return;
+                        const receiver = selectedMessageDialog.sender;
+                        const subject = replySubject.trim();
+                        const body = replyBody.trim();
+                        if (!receiver || !subject || !body) return;
+                        // Use API directly
+                        await updateMessages(localStorage.getItem('jwt_token') || '', { ids: [Number(selectedMessageDialog.id)], is_read: true });
+                        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8080'}/api/messages`, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${localStorage.getItem('jwt_token') || ''}`,
+                          },
+                          body: JSON.stringify({ receiver, subject, body }),
+                        });
+                        if (!res.ok) throw new Error(await res.text());
+                        setSnack({ open: true, message: 'Reply sent', severity: 'success' });
+                        setReplyMode(false);
+                        setPaginationModel((pm) => ({ ...pm }));
+                      } catch (e: any) {
+                        setSnack({ open: true, message: e.message || 'Failed to send reply', severity: 'error' });
+                      }
+                    }}
+                  >
+                    Send Reply
+                  </Button>
+                </>
+              )}
               {!showArchived ? (
                 <Button
                   color="secondary"
