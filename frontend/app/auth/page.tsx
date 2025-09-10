@@ -143,7 +143,7 @@ export default function AuthPage() {
             backgroundColor: 'grey.50'
           }}
         >
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.primary">
             <strong>Demo Features:</strong> User authentication, real-time messaging, 
             responsive design with Material-UI, and PostgreSQL backend.
           </Typography>
