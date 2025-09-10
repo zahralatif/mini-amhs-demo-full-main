@@ -76,31 +76,47 @@ func messagesHandler(db *sql.DB) http.Handler {
 				pageSize = 25
 			}
 			archived := r.URL.Query().Get("archived") == "true"
+			sent := r.URL.Query().Get("sent") == "true"
 
 			var totalItems int64
-			countQuery := "SELECT COUNT(*) FROM messages WHERE receiver=$1 AND is_archived="
-			if archived {
-				countQuery += "TRUE"
+			if sent {
+				if err := db.QueryRow(`SELECT COUNT(*) FROM messages WHERE sender=$1 AND is_archived=$2`, username, archived).Scan(&totalItems); err != nil {
+					log.Println("count query error:", err)
+					http.Error(w, "db error", http.StatusInternalServerError)
+					return
+				}
 			} else {
-				countQuery += "FALSE"
-			}
-			if err := db.QueryRow(countQuery, username).Scan(&totalItems); err != nil {
-				log.Println("count query error:", err)
-				http.Error(w, "db error", http.StatusInternalServerError)
-				return
+				if err := db.QueryRow(`SELECT COUNT(*) FROM messages WHERE receiver=$1 AND is_archived=$2`, username, archived).Scan(&totalItems); err != nil {
+					log.Println("count query error:", err)
+					http.Error(w, "db error", http.StatusInternalServerError)
+					return
+				}
 			}
 
 			totalPages := int(math.Ceil(float64(totalItems) / float64(pageSize)))
 			offset := (page - 1) * pageSize
 
-			rows, err := db.Query(
-				`SELECT id, sender, receiver, subject, body, is_read, is_archived, created_at
-				 FROM messages
-				 WHERE receiver=$1 AND is_archived=$2
-				 ORDER BY created_at DESC
-				 LIMIT $3 OFFSET $4`,
-				username, archived, pageSize, offset,
-			)
+			var rows *sql.Rows
+			var err error
+			if sent {
+				rows, err = db.Query(
+					`SELECT id, sender, receiver, subject, body, is_read, is_archived, created_at
+					 FROM messages
+					 WHERE sender=$1 AND is_archived=$2
+					 ORDER BY created_at DESC
+					 LIMIT $3 OFFSET $4`,
+					username, archived, pageSize, offset,
+				)
+			} else {
+				rows, err = db.Query(
+					`SELECT id, sender, receiver, subject, body, is_read, is_archived, created_at
+					 FROM messages
+					 WHERE receiver=$1 AND is_archived=$2
+					 ORDER BY created_at DESC
+					 LIMIT $3 OFFSET $4`,
+					username, archived, pageSize, offset,
+				)
+			}
 			if err != nil {
 				log.Println("select query error:", err)
 				http.Error(w, "db error", http.StatusInternalServerError)

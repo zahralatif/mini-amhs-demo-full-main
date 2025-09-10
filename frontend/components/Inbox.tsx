@@ -36,6 +36,7 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
   }>({ open: false, message: '', severity: 'success' });
   const [selection, setSelection] = useState<GridRowSelectionModel>([]);
   const [showArchived, setShowArchived] = useState(false);
+  const [showSent, setShowSent] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedMessageDialog, setSelectedMessageDialog] = useState<Message | null>(null);
   const [replyMode, setReplyMode] = useState(false);
@@ -118,7 +119,7 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
       setSnack((s) => ({ ...s, open: false }));
       const { page, pageSize } = paginationModel;
       try {
-        const url = `/api/messages?page=${page + 1}&pageSize=${pageSize}&archived=${showArchived}`;
+        const url = `/api/messages?page=${page + 1}&pageSize=${pageSize}&archived=${showArchived}&sent=${showSent}`;
         const response = await getJSON<PaginatedResponse<Message>>(url);
         const safeData = Array.isArray((response as any)?.data) ? (response as any).data as Message[] : [];
         const safeTotal = Number((response as any)?.pagination?.totalItems ?? safeData.length ?? 0);
@@ -135,7 +136,7 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
       }
     }
     load();
-  }, [refreshKey, paginationModel, getJSON, showArchived]);
+  }, [refreshKey, paginationModel, getJSON, showArchived, showSent]);
 
   const rowsLength = rowsArray.length;
 
@@ -171,6 +172,33 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
           onClick={() => setShowArchived((v) => !v)}
         >
           {showArchived ? 'Showing Archived' : 'Show Archived'}
+        </Button>
+        <Button
+          variant="outlined"
+          color="primary"
+          size="small"
+          disabled={selection.length !== 1 || loading}
+          onClick={() => {
+            const id = Number(selection[0]);
+            const m = rowsArray.find((r) => Number(r.id) === id);
+            if (!m) return;
+            setSelectedMessageDialog(m);
+            setDialogOpen(true);
+            setReplyMode(true);
+            const toUser = showSent ? m.receiver : m.sender;
+            setReplySubject(m.subject?.startsWith('Re: ') ? m.subject : `Re: ${m.subject}`);
+            setReplyBody(`\n\n--- Original message ---\nFrom: ${m.sender}\nTo: ${m.receiver}\nSent: ${new Date(m.created_at).toLocaleString()}\n\n${m.body}`);
+          }}
+        >
+          Reply
+        </Button>
+        <Button
+          variant={showSent ? 'contained' : 'outlined'}
+          color="inherit"
+          size="small"
+          onClick={() => setShowSent((v) => !v)}
+        >
+          {showSent ? 'Showing Sent' : 'Show Sent'}
         </Button>
         <Button
           variant="outlined"
