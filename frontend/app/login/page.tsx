@@ -13,7 +13,10 @@ import {
   Button,
   Alert,
   Link,
+  InputAdornment,
+  IconButton,
 } from '@mui/material';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 import NextLink from 'next/link';
 import { useState } from 'react';
 
@@ -28,6 +31,7 @@ export default function LoginPage() {
   const { login } = useAuth();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const {
     register,
     handleSubmit,
@@ -35,6 +39,10 @@ export default function LoginPage() {
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
+
+  const handleTogglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
 
   const onSubmit = async (data: LoginFormData) => {
     setError(null);
@@ -82,12 +90,25 @@ export default function LoginPage() {
             required
             fullWidth
             label="Password"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             id="password"
             autoComplete="current-password"
             {...register('password')}
             error={!!errors.password}
             helperText={errors.password?.message}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label="toggle password visibility"
+                    onClick={handleTogglePasswordVisibility}
+                    edge="end"
+                  >
+                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
           />
           <Button
             type="submit"
@@ -100,7 +121,7 @@ export default function LoginPage() {
           </Button>
           <Box sx={{ textAlign: 'center', mt: 2 }}>
             <Link component={NextLink} href="/register" variant="body2" sx={{ mr: 2 }}>
-              Don't have an account? Register here
+              Don&apos;t have an account? Register here
             </Link>
             <br />
             <Link component={NextLink} href="/auth" variant="body2" sx={{ mt: 1, display: 'inline-block' }}>
