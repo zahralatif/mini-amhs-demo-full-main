@@ -1,1 +1,17 @@
-node_modules
+# Ignore everything by default
+# Keep common build/deps out of Git
+node_modules/
+frontend/.next/
+frontend/out/
+frontend/.vercel/
+dist/
+build/
+coverage/
+
+# Ignore all Markdown docs by default, except README files
+*.md
+!README.md
+!**/README.md
+
+# Keep the ignore file itself
+!.gitignore

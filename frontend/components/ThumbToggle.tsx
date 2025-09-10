@@ -12,9 +12,9 @@ export default function ThumbToggle() {
   return (
     <Tooltip title="Toggle theme">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <LightModeIcon fontSize="small" sx={{ opacity: 0.7 }} />
-        <Switch onChange={toggleColorMode} color="primary" />
         <DarkModeIcon fontSize="small" sx={{ opacity: 0.7 }} />
+        <Switch onChange={toggleColorMode} color="primary" />
+        <LightModeIcon fontSize="small" sx={{ opacity: 0.7 }} />
       </Box>
     </Tooltip>
   );

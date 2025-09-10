@@ -2,6 +2,14 @@
 
 This project is a simple, full-stack messaging application demonstrating a Go backend, a Next.js frontend, and a PostgreSQL database.
 
+> Note: This repository is currently configured to ignore all files except `README.md` via `.gitignore`. If files are already tracked in Git, they will remain tracked until you remove them from the index. To stop tracking all other files and keep only this README, run:
+
+```bash
+git rm -r --cached .
+git add README.md .gitignore
+git commit -m "Keep only README tracked; ignore others"
+```
+
 ## Getting Started
 
 Follow these instructions to get the project set up and running on your local machine.
