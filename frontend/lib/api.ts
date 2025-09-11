@@ -60,14 +60,14 @@ export function getMessages(token: string, page = 1, pageSize = 25, archived = f
   return getJSON<PaginatedResponse<Message>>(`/api/messages?page=${page}&pageSize=${pageSize}&archived=${archived}&sent=${sent}`, token);
 }
 
-export async function deleteMessages(token: string, ids: number[]) {
+export async function deleteMessages(token: string, ids: number[], sent: boolean = false) {
   const res = await fetch(`${BASE}/api/messages`, {
     method: "DELETE",
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ ids }),
+    body: JSON.stringify({ ids, sent }),
   });
   if (!res.ok) {
     const errorText = await res.text();
@@ -78,7 +78,7 @@ export async function deleteMessages(token: string, ids: number[]) {
 
 export async function updateMessages(
   token: string,
-  payload: { ids: number[]; is_read?: boolean; is_archived?: boolean }
+  payload: { ids: number[]; is_read?: boolean; is_archived?: boolean, sent?: boolean }
 ) {
   const res = await fetch(`${BASE}/api/messages`, {
     method: "PUT",

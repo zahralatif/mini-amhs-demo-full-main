@@ -212,7 +212,7 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
               setLoading(true);
               const ids = selection.map((id) => Number(id)).filter((n) => Number.isFinite(n));
               if (ids.length === 0) return;
-              await deleteMessages(localStorage.getItem('jwt_token') || '', ids);
+              await deleteMessages(localStorage.getItem('jwt_token') || '', ids, showSent);
               setSnack({ open: true, message: `Deleted ${ids.length} message(s)`, severity: 'success' });
               // Refresh
               setPaginationModel((pm) => ({ ...pm }));
@@ -237,7 +237,7 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
                 setLoading(true);
                 const ids = selection.map((id) => Number(id)).filter((n) => Number.isFinite(n));
                 if (ids.length === 0) return;
-                await updateMessages(localStorage.getItem('jwt_token') || '', { ids, is_archived: false });
+                await updateMessages(localStorage.getItem('jwt_token') || '', { ids, is_archived: false, sent: showSent });
                 setSnack({ open: true, message: `Unarchived ${ids.length} message(s)`, severity: 'success' });
                 setPaginationModel((pm) => ({ ...pm }));
               } catch (e: any) {
@@ -262,7 +262,7 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
               const ids = selection.map((id) => Number(id)).filter((n) => Number.isFinite(n));
               if (ids.length === 0) return;
               const targetIsRead = !allSelectedAreRead;
-              await updateMessages(localStorage.getItem('jwt_token') || '', { ids, is_read: targetIsRead });
+              await updateMessages(localStorage.getItem('jwt_token') || '', { ids, is_read: targetIsRead, sent: showSent });
               setSnack({ open: true, message: targetIsRead ? `Marked ${ids.length} as read` : `Marked ${ids.length} as unread`, severity: 'success' });
               setPaginationModel((pm) => ({ ...pm }));
             } catch (e: any) {
@@ -285,7 +285,7 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
                 setLoading(true);
                 const ids = selection.map((id) => Number(id)).filter((n) => Number.isFinite(n));
                 if (ids.length === 0) return;
-                await updateMessages(localStorage.getItem('jwt_token') || '', { ids, is_archived: true });
+                await updateMessages(localStorage.getItem('jwt_token') || '', { ids, is_archived: true, sent: showSent });
                 setSnack({ open: true, message: `Archived ${ids.length} message(s)`, severity: 'success' });
                 setPaginationModel((pm) => ({ ...pm }));
               } catch (e: any) {
@@ -406,7 +406,7 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
                   onClick={async () => {
                     try {
                       const target = !selectedMessageDialog.is_read;
-                      await updateMessages(localStorage.getItem('jwt_token') || '', { ids: [Number(selectedMessageDialog.id)], is_read: target });
+                      await updateMessages(localStorage.getItem('jwt_token') || '', { ids: [Number(selectedMessageDialog.id)], is_read: target, sent: showSent });
                       setPaginationModel((pm) => ({ ...pm }));
                       setSelectedMessageDialog({ ...selectedMessageDialog, is_read: target });
                     } catch {}
@@ -463,7 +463,7 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
                   color="secondary"
                   onClick={async () => {
                     try {
-                      await updateMessages(localStorage.getItem('jwt_token') || '', { ids: [Number(selectedMessageDialog.id)], is_archived: true });
+                      await updateMessages(localStorage.getItem('jwt_token') || '', { ids: [Number(selectedMessageDialog.id)], is_archived: true, sent: showSent });
                       setPaginationModel((pm) => ({ ...pm }));
                       setDialogOpen(false);
                     } catch {}
@@ -476,7 +476,7 @@ export default function Inbox({ refreshKey }: { refreshKey: number }) {
                   color="secondary"
                   onClick={async () => {
                     try {
-                      await updateMessages(localStorage.getItem('jwt_token') || '', { ids: [Number(selectedMessageDialog.id)], is_archived: false });
+                      await updateMessages(localStorage.getItem('jwt_token') || '', { ids: [Number(selectedMessageDialog.id)], is_archived: false, sent: showSent });
                       setPaginationModel((pm) => ({ ...pm }));
                       setDialogOpen(false);
                     } catch {}
