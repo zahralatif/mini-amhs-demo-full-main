@@ -25,7 +25,7 @@ func main() {
 	mux := http.NewServeMux()
 	// Public
 	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
-		// No longer need setCORS here; middleware handles it.
+		setCORS(w, r)
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return

@@ -13,14 +13,15 @@ import (
 )
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
-	// No longer need setCORS here; middleware handles it.
+	setCORS(w, r)
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("ok"))
 }
 
 func messagesHandler(db *sql.DB) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodOptions {
+			setCORS(w, r)
+			if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
