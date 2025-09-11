@@ -13,14 +13,13 @@ import (
 )
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
-	setCORS(w, r)
+	// No longer need setCORS here; middleware handles it.
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("ok"))
 }
 
 func messagesHandler(db *sql.DB) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		setCORS(w, r)
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -52,13 +51,25 @@ func messagesHandler(db *sql.DB) http.Handler {
 				return
 			}
 
+			// Add length validation
+			const maxSubjectLen = 255
+			const maxBodyLen = 10000
+			if len(in.Subject) > maxSubjectLen {
+				http.Error(w, "subject exceeds maximum length of 255 characters", http.StatusBadRequest)
+				return
+			}
+			if len(in.Body) > maxBodyLen {
+				http.Error(w, "body exceeds maximum length of 10000 characters", http.StatusBadRequest)
+				return
+			}
+
 			var msg Message
 			err := db.QueryRow(
 				`INSERT INTO messages(sender, receiver, subject, body)
 				 VALUES($1,$2,$3,$4)
-				 RETURNING id, sender, receiver, subject, body, is_read, is_archived, created_at`,
+				 RETURNING id, sender, receiver, subject, body, is_read, receiver_archived, sender_archived, created_at`,
 				username, in.Receiver, in.Subject, in.Body,
-			).Scan(&msg.ID, &msg.Sender, &msg.Receiver, &msg.Subject, &msg.Body, &msg.IsRead, &msg.IsArchived, &msg.CreatedAt)
+			).Scan(&msg.ID, &msg.Sender, &msg.Receiver, &msg.Subject, &msg.Body, &msg.IsRead, &msg.ReceiverArchived, &msg.SenderArchived, &msg.CreatedAt)
 			if err != nil {
 				log.Println("insert error:", err)
 				http.Error(w, "db error", http.StatusInternalServerError)
@@ -79,18 +90,16 @@ func messagesHandler(db *sql.DB) http.Handler {
 			sent := r.URL.Query().Get("sent") == "true"
 
 			var totalItems int64
+			var countQuery string
 			if sent {
-				if err := db.QueryRow(`SELECT COUNT(*) FROM messages WHERE sender=$1 AND is_archived=$2`, username, archived).Scan(&totalItems); err != nil {
-					log.Println("count query error:", err)
-					http.Error(w, "db error", http.StatusInternalServerError)
-					return
-				}
+				countQuery = `SELECT COUNT(*) FROM messages WHERE sender=$1 AND sender_archived=$2`
 			} else {
-				if err := db.QueryRow(`SELECT COUNT(*) FROM messages WHERE receiver=$1 AND is_archived=$2`, username, archived).Scan(&totalItems); err != nil {
-					log.Println("count query error:", err)
-					http.Error(w, "db error", http.StatusInternalServerError)
-					return
-				}
+				countQuery = `SELECT COUNT(*) FROM messages WHERE receiver=$1 AND receiver_archived=$2`
+			}
+			if err := db.QueryRow(countQuery, username, archived).Scan(&totalItems); err != nil {
+				log.Println("count query error:", err)
+				http.Error(w, "db error", http.StatusInternalServerError)
+				return
 			}
 
 			totalPages := int(math.Ceil(float64(totalItems) / float64(pageSize)))
@@ -98,25 +107,21 @@ func messagesHandler(db *sql.DB) http.Handler {
 
 			var rows *sql.Rows
 			var err error
+			var selectQuery string
 			if sent {
-				rows, err = db.Query(
-					`SELECT id, sender, receiver, subject, body, is_read, is_archived, created_at
+				selectQuery = `SELECT id, sender, receiver, subject, body, is_read, receiver_archived, sender_archived, created_at
 					 FROM messages
-					 WHERE sender=$1 AND is_archived=$2
+					 WHERE sender=$1 AND sender_archived=$2
 					 ORDER BY created_at DESC
-					 LIMIT $3 OFFSET $4`,
-					username, archived, pageSize, offset,
-				)
+					 LIMIT $3 OFFSET $4`
 			} else {
-				rows, err = db.Query(
-					`SELECT id, sender, receiver, subject, body, is_read, is_archived, created_at
+				selectQuery = `SELECT id, sender, receiver, subject, body, is_read, receiver_archived, sender_archived, created_at
 					 FROM messages
-					 WHERE receiver=$1 AND is_archived=$2
+					 WHERE receiver=$1 AND receiver_archived=$2
 					 ORDER BY created_at DESC
-					 LIMIT $3 OFFSET $4`,
-					username, archived, pageSize, offset,
-				)
+					 LIMIT $3 OFFSET $4`
 			}
+			rows, err = db.Query(selectQuery, username, archived, pageSize, offset)
 			if err != nil {
 				log.Println("select query error:", err)
 				http.Error(w, "db error", http.StatusInternalServerError)
@@ -127,7 +132,7 @@ func messagesHandler(db *sql.DB) http.Handler {
 			var messages []Message
 			for rows.Next() {
 				var m Message
-				if err := rows.Scan(&m.ID, &m.Sender, &m.Receiver, &m.Subject, &m.Body, &m.IsRead, &m.IsArchived, &m.CreatedAt); err != nil {
+				if err := rows.Scan(&m.ID, &m.Sender, &m.Receiver, &m.Subject, &m.Body, &m.IsRead, &m.ReceiverArchived, &m.SenderArchived, &m.CreatedAt); err != nil {
 					log.Println("scan error:", err)
 					continue
 				}
@@ -150,6 +155,7 @@ func messagesHandler(db *sql.DB) http.Handler {
 				IDs        []int64 `json:"ids"`
 				IsRead     *bool   `json:"is_read"`
 				IsArchived *bool   `json:"is_archived"`
+				Sent       bool    `json:"sent"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 				http.Error(w, "invalid json", http.StatusBadRequest)
@@ -161,6 +167,10 @@ func messagesHandler(db *sql.DB) http.Handler {
 			}
 			if in.IsRead == nil && in.IsArchived == nil {
 				http.Error(w, "no update fields provided", http.StatusBadRequest)
+				return
+			}
+			if in.IsRead != nil && in.Sent {
+				http.Error(w, "cannot update read status for sent messages", http.StatusBadRequest)
 				return
 			}
 
@@ -177,11 +187,20 @@ func messagesHandler(db *sql.DB) http.Handler {
 				if len(args) > 0 {
 					q += ", "
 				}
-				q += "is_archived=$" + strconv.Itoa(idx)
+				archiveColumn := "receiver_archived"
+				if in.Sent {
+					archiveColumn = "sender_archived"
+				}
+				q += archiveColumn + "=$" + strconv.Itoa(idx)
 				args = append(args, *in.IsArchived)
 				idx++
 			}
-			q += " WHERE receiver=$" + strconv.Itoa(idx) + " AND id = ANY($" + strconv.Itoa(idx+1) + ")"
+
+			userColumn := "receiver"
+			if in.Sent {
+				userColumn = "sender"
+			}
+			q += " WHERE " + userColumn + "=$" + strconv.Itoa(idx) + " AND id = ANY($" + strconv.Itoa(idx+1) + ")"
 			args = append(args, username, pq.Array(in.IDs))
 
 			res, err := db.Exec(q, args...)
@@ -195,7 +214,8 @@ func messagesHandler(db *sql.DB) http.Handler {
 
 		case http.MethodDelete:
 			var in struct {
-				IDs []int64 `json:"ids"`
+				IDs  []int64 `json:"ids"`
+				Sent bool    `json:"sent"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 				http.Error(w, "invalid json", http.StatusBadRequest)
@@ -206,11 +226,13 @@ func messagesHandler(db *sql.DB) http.Handler {
 				return
 			}
 
-			res, err := db.Exec(
-				`DELETE FROM messages WHERE receiver=$1 AND id = ANY($2)`,
-				username,
-				pq.Array(in.IDs),
-			)
+			userColumn := "receiver"
+			if in.Sent {
+				userColumn = "sender"
+			}
+
+			query := "DELETE FROM messages WHERE " + userColumn + "=$1 AND id = ANY($2)"
+			res, err := db.Exec(query, username, pq.Array(in.IDs))
 			if err != nil {
 				log.Println("delete error:", err)
 				http.Error(w, "db error", http.StatusInternalServerError)
